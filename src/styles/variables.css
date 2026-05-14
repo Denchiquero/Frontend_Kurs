@@ -1,0 +1,21 @@
+:root {
+    /* === ОСНОВНАЯ ТЕМА === */
+    --color-primary: #5b21b6;
+    --color-primary-light: #f3e8ff;
+
+    /* === НЕЙТРАЛЬНАЯ ПАЛИТРА === */
+    --color-white: #ffffff;
+    --color-gray: #e5e7eb;
+
+    /* === ТЕКСТ === */
+    --color-text: #111111;
+    --color-text-secondary: #6b7280;
+
+    /* === СТАТУСЫ === */
+    --color-danger: #ef4444;
+    --color-danger-light: #fee2e2;
+    --color-danger-text: #dc2626;
+
+    /* === АНИМАЦИИ === */
+    --transition: 0.2s;
+}

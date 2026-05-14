@@ -23,8 +23,8 @@ export interface Property {
     minutesToMetro: number;
     houseType: HouseType;
     elevator: {
-        passenger: number;
-        cargo: number;
+        passenger: boolean;
+        cargo: boolean;
     };
     bathroom: BathroomType;
     utilitiesIncluded: boolean; // ЖКУ включены в стоимость

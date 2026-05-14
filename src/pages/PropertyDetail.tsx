@@ -1,6 +1,65 @@
-import React, { useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+
+const YandexMap: React.FC<{ address: string }> = ({ address }) => {
+    const mapRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        // Если блок карты не отрендерился, выходим
+        if (!mapRef.current) return;
+
+        const initMap = () => {
+            // Проверяем, что ymaps доступен
+            const ymaps = (window as any).ymaps;
+            if (!ymaps || !mapRef.current) return;
+
+            ymaps.ready(() => {
+                // Создаем карту
+                const map = new ymaps.Map(mapRef.current, {
+                    center: [55.76, 37.64], // Москва по умолчанию
+                    zoom: 12,
+                    // controls: ['zoomControl']
+                });
+
+                // Ищем адрес
+                ymaps.geocode(address).then((res: any) => {
+                    const firstGeoObject = res.geoObjects.get(0);
+                    if (firstGeoObject) {
+                        const coords = firstGeoObject.geometry.getCoordinates();
+                        const bounds = firstGeoObject.properties.get('boundedBy');
+
+                        // Центрируем карту
+                        map.setCenter(coords, 15);
+                        // Добавляем метку
+                        map.geoObjects.add(firstGeoObject);
+                        // Подгоняем масштаб под метку
+                        map.setBounds(bounds, {
+                            checkZoomRange: true,
+                            zoomMargin: 25
+                        });
+                    }
+                });
+            });
+        };
+
+        // ПРОВЕРКА: Если скрипт уже загружен, сразу инициализируем
+        if ((window as any).ymaps) {
+            initMap();
+        } else {
+            // Если нет, создаем тег script
+            const script = document.createElement('script');
+            // !!! ВСТАВЬ СЮДА СВОЙ КЛЮЧ !!!
+            script.src = 'https://api-maps.yandex.ru/2.1/?apikey=8e4f1f16-dc47-4503-a84a-914d258ae485&lang=ru_RU';
+            script.async = true;
+            script.onload = () => initMap();
+            document.head.appendChild(script);
+        }
+    }, [address]);
+
+    return <div ref={mapRef} style={{ width: '100%', height: '400px', borderRadius: '12px', overflow: 'hidden' }} />;
+};
+
 
 const PropertyDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -31,6 +90,7 @@ const PropertyDetail: React.FC = () => {
 
                 {/* 1. ЗАГОЛОВОК + ИЗБРАННОЕ */}
                 <div className="detail-header-block">
+
                     <h1 className="detail-title-main">{property.title}</h1>
                     {currentUser && (
                         <button onClick={toggleFavorite} className={`fav-toggle-btn ${favorite ? 'active' : ''}`}>
@@ -66,7 +126,7 @@ const PropertyDetail: React.FC = () => {
                         </div>
                         <div className="contact-actions" style={{ marginTop: 'auto' }}>
                             <button className="btn-contact primary">Позвонить</button>
-                            <button className="btn-contact secondary">Написать</button>
+                            <button className="btn-contact primary">Написать</button>
                         </div>
                     </div>
                 </div>
@@ -91,7 +151,10 @@ const PropertyDetail: React.FC = () => {
                             <div className="info-row"><span className="info-label">Площадь:</span><span className="info-value">{property.area} м²</span></div>
                             <div className="info-row"><span className="info-label">Санузел:</span><span className="info-value">{property.bathroom === 'combined' ? 'Совмещённый' : 'Раздельный'}</span></div>
                             <div className="info-row"><span className="info-label">Тип дома:</span><span className="info-value">{{ brick: 'Кирпич', panel: 'Панель', wood: 'Дерево', monolith: 'Монолит' }[property.houseType] || 'Монолит'}</span></div>
-                            <div className="info-row"><span className="info-label">Лифты:</span><span className="info-value">{property.elevator.passenger} пасс., {property.elevator.cargo} груз.</span></div>
+                            <div className="info-row"><span className="info-label">Лифты:</span><span className="info-value">{[
+                                property.elevator.passenger && 'Пассажирский',
+                                property.elevator.cargo && 'Грузовой'
+                            ].filter(Boolean).join(', ') || 'Нет'}</span></div>
                         </div>
                     </div>
 
@@ -99,7 +162,6 @@ const PropertyDetail: React.FC = () => {
                         <h2 className="section-heading">Условия аренды</h2>
                         <div className="info-grid">
                             <div className="info-row"><span className="info-label">ЖКУ:</span><span className="info-value">{property.utilitiesIncluded ? 'Включены в платёж' : 'Оплачиваются отдельно'}</span></div>
-                            <div className="info-row"><span className="info-label">Комиссия:</span><span className="info-value">0%</span></div>
                         </div>
                     </div>
 
@@ -118,6 +180,14 @@ const PropertyDetail: React.FC = () => {
                     <h2 className="section-heading">Описание</h2>
                     <p className="detail-description">{property.description}</p>
                 </div>
+
+                {/* === 8. КАРТА (НОВЫЙ БЛОК) === */}
+                {property.address && (
+                    <div className="detail-section-block">
+                        <h2 className="section-heading">Расположение на карте</h2>
+                        <YandexMap address={'Москва' +property.address} />
+                    </div>
+                )}
 
             </div>
         </div>

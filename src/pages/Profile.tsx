@@ -107,7 +107,7 @@ const Profile: React.FC = () => {
     }
 
     return (
-        <div className="container">
+        <div className="home-wrapper">
             <div className="profile-card">
                 <div className="profile-header">
                     <h1 className="page-title" style={{ marginBottom: 0 }}>Профиль</h1>

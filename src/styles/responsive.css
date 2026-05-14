@@ -1,0 +1,23 @@
+@media (max-width: 900px) {
+    .nav { display: none; }
+    .content-layout { flex-direction: column; }
+    .sidebar { width: 100%; position: static; max-height: none; margin-bottom: 24px; }
+    .search-sort-bar { flex-direction: column; }
+    .search-input-bar, .sort-select-bar { width: 100%; }
+    .properties-grid { grid-template-columns: 1fr; }
+    .detail-header-block { flex-direction: column; gap: 12px; }
+    .detail-header-right { flex-direction: row; align-items: center; justify-content: space-between; width: 100%; }
+    .info-grid, .form-row, .profile-info-grid { grid-template-columns: 1fr; }
+    .contact-block { flex-direction: column; gap: 16px; text-align: center; }
+    .contact-actions { flex-direction: column; width: 100%; }
+    .btn-contact { width: 100%; }
+    .gallery-main { height: 260px; }
+    .detail-middle-section { grid-template-columns: 1fr; padding: 12px; }
+    .detail-right-info { margin-top: 8px; padding: 16px; }
+    .detail-price-main { font-size: 26px; }
+}
+
+@media (max-width: 768px) {
+    .form-row { grid-template-columns: 1fr; }
+    .checkbox-group { flex-direction: column; gap: 12px; }
+}

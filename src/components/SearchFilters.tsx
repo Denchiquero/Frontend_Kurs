@@ -50,7 +50,7 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({ onSearch, initialFilters 
 
             <div className="filter-group">
                 <label className="filter-label">Тип недвижимости</label>
-                <select value={filters.category} onChange={(e) => handleChange('category', e.target.value)} className="form-select">
+                <select value={filters.category} onChange={(e) => handleChange('category', e.target.value)} className="form-select select">
                     <option value="">Все типы</option>
                     <option value="apartment">Квартира</option>
                     <option value="studio">Студия</option>
@@ -69,12 +69,12 @@ const SearchFilters: React.FC<SearchFiltersProps> = ({ onSearch, initialFilters 
 
             <div className="filter-group">
                 <label className="filter-label">Комнаты</label>
-                <select value={filters.rooms} onChange={(e) => handleChange('rooms', e.target.value)} className="form-select">
+                <select value={filters.rooms} onChange={(e) => handleChange('rooms', e.target.value)} className="form-select select">
                     <option value="">Любое</option>
                     <option value="1">1</option>
                     <option value="2">2</option>
                     <option value="3">3</option>
-                    <option value="4+">4+</option>
+                    <option value="4" >4+</option>
                 </select>
             </div>
 

@@ -7,8 +7,16 @@ import type { Property, HouseType, BathroomType } from '../types';
 interface AddPropertyProps {
     editMode?: boolean;
     propertyData?: Property;
-    onSubmit?: (data: Omit<Property, 'id' | 'createdAt' | 'authorId' | 'images' | 'image'>) => void;
+    onSubmit?: (Omit<Property, 'id' | 'createdAt' | 'authorId' | 'images' | 'image'>);
     onCancel?: () => void;
+}
+
+interface UploadedImage {
+    id: string;
+    file: File;
+    preview: string;
+    uploaded: boolean;
+    progress: number;
 }
 
 const AddProperty: React.FC<AddPropertyProps> = ({
@@ -18,36 +26,32 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                                                      onCancel
                                                  }) => {
     const navigate = useNavigate();
-    const { addProperty, currentUser } = useApp();
+    const { addProperty, editProperty, currentUser } = useApp();
 
-    // Состояние формы — полностью соответствует интерфейсу Property
+    // Состояние формы
     const [formData, setFormData] = useState({
-        // Основные данные
         title: '', price: '', area: '', rooms: '', floor: '', description: '', address: '', metro: '',
         category: 'apartment' as const, amenities: '',
-
-        // Характеристики
         minutesToMetro: '',
         houseType: 'monolith' as HouseType,
         bathroom: 'combined' as BathroomType,
         elevatorPassenger: false,
         elevatorCargo: false,
-
-        // Условия аренды
         deposit: '',
         utilitiesIncluded: false,
-
-        // Правила
         allowChildren: true,
         allowPets: false,
         allowSmoking: false,
-
-        // Особенности
         features: [] as string[],
         newFeature: ''
     });
 
-    // Заполняем форму при редактировании
+    // Состояние загрузки фото
+    const [images, setImages] = useState<UploadedImage[]>([]);
+    const [isDragging, setIsDragging] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+
+    // Заполнение формы при редактировании
     useEffect(() => {
         if (editMode && propertyData) {
             setFormData({
@@ -64,8 +68,8 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                 minutesToMetro: String(propertyData.minutesToMetro || ''),
                 houseType: propertyData.houseType,
                 bathroom: propertyData.bathroom,
-                elevatorPassenger: propertyData.elevator.passenger > 0,
-                elevatorCargo: propertyData.elevator.cargo > 0,
+                elevatorPassenger: propertyData.elevator.passenger,
+                elevatorCargo: propertyData.elevator.cargo,
                 deposit: String(propertyData.deposit || ''),
                 utilitiesIncluded: propertyData.utilitiesIncluded,
                 allowChildren: propertyData.rules.children,
@@ -74,6 +78,17 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                 features: propertyData.features || [],
                 newFeature: ''
             });
+            // Загружаем существующие фото как превью
+            if (propertyData.images?.length) {
+                const existingImages: UploadedImage[] = propertyData.images.map((src, idx) => ({
+                    id: `existing-${idx}`,
+                    file: new File([], 'existing.jpg'),
+                    preview: src,
+                    uploaded: true,
+                    progress: 100
+                }));
+                setImages(existingImages);
+            }
         }
     }, [editMode, propertyData]);
 
@@ -85,9 +100,7 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                     <p className="section-text" style={{ textAlign: 'center', marginBottom: '24px' }}>
                         Чтобы добавить объявление, необходимо войти в аккаунт.
                     </p>
-                    <div style={{ textAlign: 'center' }}>
-                        <Link to="/profile" className="search-btn" style={{ textDecoration: 'none' }}>Войти в аккаунт</Link>
-                    </div>
+                    <Link to="/profile" className="search-btn" style={{ textDecoration: 'none' }}>Войти в аккаунт</Link>
                 </div>
             </div>
         );
@@ -126,8 +139,116 @@ const AddProperty: React.FC<AddPropertyProps> = ({
         }
     };
 
+    // === ЗАГРУЗКА ФОТОГРАФИЙ ===
+    const validateFiles = (files: FileList | File[]): File[] => {
+        const validTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+        const maxSize = 10 * 1024 * 1024; // 10 МБ
+        const validFiles: File[] = [];
+
+        Array.from(files).forEach(file => {
+            if (!validTypes.includes(file.type)) {
+                alert(`Файл "${file.name}" не поддерживается. Разрешены только JPEG и PNG.`);
+                return;
+            }
+            if (file.size > maxSize) {
+                alert(`Файл "${file.name}" слишком большой. Максимальный размер: 10 МБ.`);
+                return;
+            }
+            validFiles.push(file);
+        });
+
+        return validFiles;
+    };
+
+    const createImagePreview = (file: File): Promise<string> => {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+        });
+    };
+
+    // ИСПРАВЛЕННАЯ ФУНКЦИЯ СИМУЛЯЦИИ ЗАГРУЗКИ
+    const simulateUpload = async (image: UploadedImage): Promise<UploadedImage> => {
+        return new Promise((resolve) => {
+            let progress = 0;
+
+            // Обновляем состояние прогресса внутри интервала
+            const updateProgress = (p: number) => {
+                setImages(prev => prev.map(img => img.id === image.id ? { ...img, progress: p } : img));
+            };
+
+            const interval = setInterval(() => {
+                progress += Math.random() * 20 + 10; // Шаг 10-30%
+                if (progress >= 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    // ИСПРАВЛЕНИЕ: обновляем состояние, явно ставя uploaded: true
+                    setImages(prev => prev.map(img =>
+                        img.id === image.id ? { ...img, progress: 100, uploaded: true } : img
+                    ));
+                    resolve({ ...image, uploaded: true, progress: 100 });
+                } else {
+                    updateProgress(progress);
+                    // ВАЖНО: Здесь нет resolve(), иначе промис завершится раньше времени
+                }
+            }, 200);
+        });
+    };
+
+    const handleFileSelect = async (files: FileList | File[]) => {
+        const validFiles = validateFiles(files);
+        if (!validFiles.length) return;
+
+        setIsUploading(true);
+
+        for (const file of validFiles) {
+            const preview = await createImagePreview(file);
+            const newImage: UploadedImage = {
+                id: `upload-${Date.now()}-${Math.random()}`,
+                file,
+                preview,
+                uploaded: false,
+                progress: 0
+            };
+
+            // 1. Добавляем пустое изображение в список, чтобы пользователь сразу его увидел
+            setImages(prev => [...prev, newImage]);
+
+            // 2. Запускаем симуляцию (которая обновляет прогресс-бар внутри себя)
+            await simulateUpload(newImage);
+        }
+
+        setIsUploading(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        if (e.dataTransfer.files) {
+            handleFileSelect(e.dataTransfer.files);
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragging(false);
+    };
+
+    const removeImage = (id: string) => {
+        setImages(prev => prev.filter(img => img.id !== id));
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        // Получаем URL загруженных фото (base64 превью)
+        const imageUrls = images.map(img => img.preview);
+        const mainImage = imageUrls[0] || 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800';
 
         const propertyPayload = {
             title: formData.title,
@@ -139,15 +260,15 @@ const AddProperty: React.FC<AddPropertyProps> = ({
             address: formData.address,
             metro: formData.metro,
             category: formData.category,
-            image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
-            images: ['https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800'],
+            image: mainImage,
+            images: imageUrls,
             amenities: formData.amenities.split(',').map(a => a.trim()).filter(Boolean),
             deposit: Number(formData.deposit) || 0,
             minutesToMetro: Number(formData.minutesToMetro) || 0,
             houseType: formData.houseType,
             elevator: {
-                passenger: formData.elevatorPassenger ? 1 : 0,
-                cargo: formData.elevatorCargo ? 1 : 0
+                passenger: formData.elevatorPassenger,
+                cargo: formData.elevatorCargo
             },
             bathroom: formData.bathroom,
             utilitiesIncluded: formData.utilitiesIncluded,
@@ -161,6 +282,9 @@ const AddProperty: React.FC<AddPropertyProps> = ({
 
         if (editMode && onSubmit) {
             onSubmit(propertyPayload);
+        } else if (editMode && editProperty && propertyData) {
+            editProperty(propertyData.id, propertyPayload);
+            navigate('/profile');
         } else {
             addProperty(propertyPayload);
             navigate('/');
@@ -179,7 +303,7 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                         <h3 className="section-title">Основная информация</h3>
                         <div className="form-group">
                             <label className="form-label">Категория</label>
-                            <select name="category" value={formData.category} onChange={handleChange} className="form-select">
+                            <select name="category" value={formData.category} onChange={handleChange} className="form-select select">
                                 {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.label}</option>)}
                             </select>
                         </div>
@@ -200,9 +324,8 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label">Комнаты</label>
-                                <select name="rooms" value={formData.rooms} onChange={handleChange} required className="form-select">
-                                    <option value="">Выберите</option>
-                                    <option value="Студия">Студия</option>
+                                <select name="rooms" value={formData.rooms} onChange={handleChange} required className="form-select select">
+                                    <option value="" disabled >Выберите</option>
                                     <option value="1">1</option>
                                     <option value="2">2</option>
                                     <option value="3">3</option>
@@ -215,6 +338,83 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                                 <input type="text" name="floor" value={formData.floor} onChange={handleChange} required className="form-input" placeholder="Например: 5/9" />
                             </div>
                         </div>
+                    </div>
+
+                    {/* === ФОТОГРАФИИ === */}
+                    <div className="form-section">
+                        <h3 className="section-title">Фотографии</h3>
+
+                        <div
+                            className={`upload-zone ${isDragging ? 'dragging' : ''}`}
+                            onDrop={handleDrop}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                        >
+                            <input
+                                type="file"
+                                id="photo-upload"
+                                accept="image/jpeg,image/png,image/jpg"
+                                multiple
+                                style={{ display: 'none' }}
+                                onChange={(e) => e.target.files && handleFileSelect(e.target.files)}
+                            />
+
+                            <div className="upload-zone-content">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#6b21a8" strokeWidth="1.5">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                                </svg>
+                                <p className="upload-text">Перетащите фотографии сюда</p>
+                                <p className="upload-hint">или</p>
+                                <label htmlFor="photo-upload" className="upload-btn">
+                                    Выбрать файлы
+                                </label>
+                                <p className="upload-formats">JPEG, PNG • до 10 МБ</p>
+                            </div>
+                        </div>
+
+                        {/* Превью загруженных фото */}
+                        {images.length > 0 && (
+                            <div className="uploaded-images">
+                                {images.map((img) => (
+                                    <div key={img.id} className="uploaded-image-item">
+                                        <img src={img.preview} alt="preview" className="uploaded-image" />
+
+                                        {/* Индикатор загрузки */}
+                                        {!img.uploaded && (
+                                            <div className="upload-progress-overlay">
+                                                <div className="upload-progress-bar">
+                                                    <div
+                                                        className="upload-progress-fill"
+                                                        style={{ width: `${img.progress}%` }}
+                                                    />
+                                                </div>
+                                                <span className="upload-progress-text">{Math.round(img.progress)}%</span>
+                                            </div>
+                                        )}
+
+                                        {/* Галочка успешной загрузки */}
+                                        {img.uploaded && (
+                                            <div className="upload-success-badge">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                                                    <path d="M20 6L9 17l-5-5"/>
+                                                </svg>
+                                            </div>
+                                        )}
+
+                                        {/* Кнопка удаления */}
+                                        <button
+                                            type="button"
+                                            className="remove-image-btn"
+                                            onClick={() => removeImage(img.id)}
+                                        >
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     {/* === РАСПОЛОЖЕНИЕ === */}
@@ -242,7 +442,8 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label">Тип дома</label>
-                                <select name="houseType" value={formData.houseType} onChange={handleChange} className="form-select">
+                                <select name="houseType" defaultValue="" value={formData.houseType} onChange={handleChange} className="form-select select">
+                                    <option value="" disabled>Выберите</option>
                                     <option value="brick">Кирпич</option>
                                     <option value="panel">Панель</option>
                                     <option value="monolith">Монолит</option>
@@ -251,7 +452,7 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Санузел</label>
-                                <select name="bathroom" value={formData.bathroom} onChange={handleChange} className="form-select">
+                                <select name="bathroom" value={formData.bathroom} onChange={handleChange} className="form-select select">
                                     <option value="combined">Совмещённый</option>
                                     <option value="separate">Раздельный</option>
                                 </select>
@@ -335,8 +536,8 @@ const AddProperty: React.FC<AddPropertyProps> = ({
                     </div>
 
                     <div className="form-actions">
-                        <button type="submit" className="submit-btn">
-                            {editMode ? 'Сохранить изменения' : 'Опубликовать'}
+                        <button type="submit" className="submit-btn" disabled={isUploading}>
+                            {isUploading ? 'Загрузка фото...' : editMode ? 'Сохранить изменения' : 'Опубликовать'}
                         </button>
                         <button type="button" onClick={editMode && onCancel ? onCancel : () => navigate('/')} className="cancel-btn">
                             Отмена
