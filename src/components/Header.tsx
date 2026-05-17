@@ -26,7 +26,6 @@ const Header: React.FC = () => {
                     {currentUser ? (
                         <Link to="/profile" className="avatar-link">
                             <div className="avatar-circle">
-                                {/* Пока выводим первую букву. Если подключишь загрузку фото, замени на <img src={...} /> */}
                                 {currentUser.name.charAt(0).toUpperCase()}
                             </div>
                         </Link>
